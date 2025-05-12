@@ -1,0 +1,156 @@
+http://www.zuhdi.org/cheatsheet-openssl-ocsp/
+
+7.3. OCSP_basic_verify:signer certificate not found:ocsp_vfy.c:92:
+error:27069076:OCSP routines:
+  OCSP_basic_verify:signer certificate not found:ocsp_vfy.c:92:
+
+openssl ocsp -issuer ica_google.pem -VAfile ica_google.pem -cert ee_google.pem \
+  -no_nonce -url http://ocsp.pki.goog/GTSGIAG3 -header host ocsp.pki.goog
+
+$ openssl ocsp -issuer ica_google.pem -VAfile ica_google.pem -cert ee_google.pem \
+>   -no_nonce -url http://ocsp.pki.goog/GTSGIAG3 -header host ocsp.pki.goog
+Response verify OK
+ee_google.pem: good
+        This Update: Jun  2 14:26:19 2019 GMT
+        Next Update: Jun  9 14:26:19 2019 GMT
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+https://support.axway.com/kb/178502/language/en
+
+First, save the base64 blob from the logs into a file which I will call base64.txt in the examples below, then decode it into a binary ASN.1 encoded file named ocsp.bin like so:
+
+
+
+openssl enc -d -A -base64 -in base64.txt -out ocsp.bin
+
+
+Next, decode the OCSP request or response. There's a different command depending on which of the two you have:
+
+
+OCSP Request:
+
+openssl ocsp -reqin ocsp.bin -text -noverify
+
+
+OCSP Response:
+
+openssl ocsp -respin ocsp.bin -text -noverify
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+https://pypi.org/project/PyPDF2/
+
+
+https://github.com/openssl/openssl/discussions/21899
+
+1 - Testing a valid certificate
+
+I have the following cert that's still valid: valid-cert.cer.txt
+Opening it on windows I could see the intermediary issuer (Soluti) and downloaded it: soluti.cer.txt
+
+Command
+# openssl x509 -noout -ocsp_uri -in valid-cert.crt.txt
+Result
+http://ocsp3.acsoluti.com.br
+
+Now, to check if the certificate is valid I've tried the command below:
+
+Command
+# openssl ocsp -issuer soluti.cer.txt -cert valid-cert.cer.txt -url http://ocsp3.acsoluti.com.br
+Result
+Response Verify Failure
+
+2 - Testing an invalid certificate
+
+I also have a certificate that was revoked:
+Cert: invalid-cert.cer.txt
+Issuer: serasa.cer.txt
+
+Using the same approach above to discover the OCSP url, when trying to check if the certificate is still valid, I have the following result:
+
+Command
+# openssl ocsp -issuer serasa.cer.txt -cert invalid-cert.cer.txt -url http://ocsp.certificadodigital.com.br/serasasslevv10-3
+Result
+Error querying OCSP responder
+
+
+You also need to download the root certificate if you don't already have it in your system's trust store. 
+Its URL http://acraiz.icpbrasil.gov.br/ICP-Brasilv10.crt appears in the intermediate certificate. Then create a file containing the PEM (text) version of the intermediate followed by the root. (The intermediate you provided is in binary DER format so it must be converted.)
+E.g. on Linux
+
+$ openssl x509 -in soluti.cer.txt -inform DER -out cafile.pem
+$ cat ICP-Brasilv10.crt >> cafile.pem
+$ openssl ocsp -issuer soluti.cer.txt -cert valid-cert.cer.txt -url http://ocsp3.acsoluti.com.br -CAfile cafile.pem
+Result
+Response verify OK
+valid-cert.cer.txt: good
+
+(OCSP)  http://pki.jgm.gov.ar/ocsp
+CRL     http://pki.jgm.gov.ar/crl/FD.crl
+
+downdload pdf from https://www.contadurianeuquen.gob.ar/decreto-2165-2023-reglamento-de-uso-del-sistema-de-gestion-documental-electronica/
+
+
+
+openssl x509 -noout -text -in "intermadiate-ca.cer"
+openssl x509 -noout -text -in "ca.cer"
+openssl x509 -noout -text -in "GDE NEUQUEN.cer"
+openssl ocsp -issuer "intermadiate-ca.cer" -cert "GDE NEUQUEN.cer" -text -url http://pki.jgm.gov.ar/ocsp -CAfile ca.cer
+Responder Error: unauthorized (6)
+
+openssl ocsp -no_nonce -issuer "intermadiate-ca.cer" -cert "GDE NEUQUEN.cer" -resp_text -url http://pki.jgm.gov.ar/ocsp -CAfile ca.cer -no_cert_verify
+
+GDE NEUQUEN.cer: good
+        This Update: Apr 16 18:53:43 2025 GMT
+        Next Update: Apr 16 21:13:43 2025 GMT
+
+https://www.e2encrypted.com/pki/pki-certificate-revoke-ocsp/
+
+-req_text, -resp_text, -text
+Print out the text form of the OCSP request, response or both respectively.
+
+-reqout file, -respout file
+Write out the DER encoded certificate request or response to file.
+
+-reqin file, -respin file
+Read OCSP request or response file from file. 
+These option are ignored if OCSP request or response creation is implied by other options (for example with serial, cert and host options).
+
+openssl ocsp -no_nonce -issuer "intermadiate-ca.cer" -cert "GDE NEUQUEN.cer" -text -url http://pki.jgm.gov.ar/ocsp -CAfile ca.cer -respout response.der
+
+
+
+.........\tpFinal\pkiSystem\serverSide\todoTask\02-GenerateApiOCSP\ExternalLib>
+openssl ocsp -no_nonce -issuer "intermadiate-ca.cer" -cert "GDE NEUQUEN.cer" -resp_text -url http://localhost:8085 -CAfile ca.cer -no_cert_verify
+
+
+
+Now, check if this certificate has an CRL URI:
+
+openssl x509 -noout -text -in wikipedia.pem | grep -A 4 'X509v3 CRL Distribution Points'
+
+X509v3 CRL Distribution Points: 
+    Full Name:
+      URI:http://crl.globalsign.com/gs/gsorganizationvalsha2g2.crl
+
+If it does not give any output, the certificate has no CRL URI. You cannot valdiate it against a CRL.
+
+Download the CRL:
+
+wget -O crl.der http://crl.globalsign.com/gs/gsorganizationvalsha2g2.crl
+
+openssl verify -crl_check_all -crl_download "GDE NEUQUEN.cer"
+openssl verify -crl_check_all -crl_download "intermadiate-ca.cer"
+
+
+The CRL will be in DER (binary) format. The OpenSSL command needs it in PEM (base64 encoded DER) format, so convert it:
+
+openssl crl -inform DER -in crl.der -outform PEM -out crl.pem
+
+& verify using
+
+openssl verify -crl_check -CAfile crl_chain.pem crl.pem
+
